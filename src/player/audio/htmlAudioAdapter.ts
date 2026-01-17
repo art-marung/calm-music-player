@@ -1,30 +1,47 @@
 import { PlayerEngine } from "../engine";
-import { PlayerStatus } from "../types";
+import { PlayerStatus, Track } from "../types";
 
 export function bindHtmlAudio(
   engine: PlayerEngine,
   audio: HTMLAudioElement
 ) {
-  let suppressSeek = false;
+  let lastTrack: Track | null = null;
+  let lastStatus: PlayerStatus | null = null;
+  let syncing = false;
 
   const unsubscribe = engine.subscribe((state) => {
-    if (state.currentTrack && audio.src !== state.currentTrack.source) {
+    // 1. Handle track changes (LOAD ONCE)
+    if (state.currentTrack && state.currentTrack !== lastTrack) {
+      lastTrack = state.currentTrack;
+      syncing = true;
+
       audio.src = state.currentTrack.source;
+      audio.currentTime = 0;
       audio.load();
+
+      syncing = false;
     }
 
-    if (state.status === PlayerStatus.Paused && !audio.paused) {
-      audio.pause();
+    // 2. Handle play / pause transitions ONLY
+    if (state.status !== lastStatus && !syncing) {
+      lastStatus = state.status;
+
+      if (state.status === PlayerStatus.Playing) {
+        audio.play().catch(() => {
+          // Autoplay or interruption errors are expected
+        });
+      }
+
+      if (state.status === PlayerStatus.Paused) {
+        audio.pause();
+      }
     }
   });
 
+  // 3. Reflect audio time → engine (guarded)
   audio.addEventListener("timeupdate", () => {
-    if (suppressSeek) return;
+    if (syncing) return;
     engine.seek(Math.floor(audio.currentTime));
-  });
-
-  audio.addEventListener("seeked", () => {
-    suppressSeek = false;
   });
 
   audio.addEventListener("ended", () => {

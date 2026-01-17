@@ -49,7 +49,14 @@ export default function PlayerPage() {
 
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         <button onClick={() => engine.load(demoTrack)}>Load</button>
-        <button onClick={() => engine.play()}>Play</button>
+        <button
+  onClick={() => {
+    engine.play();
+    audioRef.current?.play().catch(() => {});
+  }}
+>
+  Play
+</button>
         <button onClick={() => engine.pause()}>Pause</button>
         <button onClick={() => engine.seek(60)}>Seek 60s</button>
       </div>
